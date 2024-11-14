@@ -120,6 +120,10 @@ class PageState {
                 ? null 
                 : s;
     }
+
+    static toURL() {
+        return `?cx=${this.cx}&cy=${this.cy}&pp=${this.perPixel}&it=${this.maxIterations}`;
+    }
 }
 
 const ROWS = 3, COLS = 4, NUMWORKERS = navigator.hardwareConcurrency || 2;
