@@ -122,7 +122,12 @@ class PageState {
     }
 
     static toURL() {
-        return `?cx=${this.cx}&cy=${this.cy}&pp=${this.perPixel}&it=${this.maxIterations}`;
+        let u = new URL(window.location);
+        u.searchParams.set('cx', this.cx);
+        u.searchParams.set('cy', this.cy);
+        u.searchParams.set('pp', this.perPixel);
+        u.searchParams.set('it', this.maxIterations);
+        return u.href;
     }
 }
 
@@ -132,12 +137,13 @@ class MandelbrotCanvas {
     constructor(canvas) {
         this.canvas = canvas;
         this.context = canvas.getContext('2d');      
-        this.workerPool = new WorkerPool(NUMWORKERS, 'mandelbrotWorker.js');
+        this.workerPool = new WorkerPool(NUMWORKERS, 'mandelbrot.js');
         
         this.tiles = null;
         this.pendingRender = null;
         this.wantsRender = false;
-        this.colorTable = null;
+        this.resizeTimer = null;
+        this.colorTable = null;        
 
         this.canvas.addEventListener('pointerdown', e => this.handlePoiter(e));
         window.addEventListener('keydown', e => this.handleKey(e));
@@ -160,7 +166,7 @@ class MandelbrotCanvas {
     }
 
     setState(f, save = true) {
-        if (typeof f == 'function') {
+        if (typeof f === 'function') {
             f(this.state);
         }
         else {
@@ -188,8 +194,8 @@ class MandelbrotCanvas {
 
         let promises = this.tiles.map(tile => this.workerPool.addWork({ 
             tile: tile, 
-            x0: x0, 
-            y0: y0, 
+            x0: x0 + tile.x * perPixel, 
+            y0: y0 + tile.y * perPixel, 
             perPixel: perPixel, 
             maxIterations: maxIterations 
         }));
@@ -216,7 +222,7 @@ class MandelbrotCanvas {
             else {
                 let maxlog = Math.log(1+max+min);
                 for (let i = min; i <= max; i++) {
-                    this.colorTable[i] = (Math.ceil(Math.log(1+i+min) / maxlog * 255) << 24);
+                    this.colorTable[i] = (Math.ceil(Math.log(1+i-min) / maxlog * 255) << 24);
                 }
             }
 
@@ -259,7 +265,6 @@ class MandelbrotCanvas {
                 this.setState(PageState.initialState());
                 break;
             case "+":
-            case "=":
                 this.setState(s => {
                     s.maxIterations = Math.round(s.maxIterations * 1.5);
                 });
@@ -267,6 +272,7 @@ class MandelbrotCanvas {
             case "-":
                 this.setState(s => {
                     s.maxIterations = Math.round(s.maxIterations / 1.5);
+                    if (s.maxIterations < 1) s.maxIterations = 1;
                 });
                 break;
             case "o":
